@@ -164,7 +164,7 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
                                                                           metric.dimension_names))
                 self._metric_batch.add_metric_query(metric_update_bound_stmt)
 
-                return metric
+                return metric, tenant_id
 
             self._metric_id_cache[metric.id] = metric.id
 
@@ -215,9 +215,9 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
                  metric.time_stamp))
             self._metric_batch.add_measurement_query(measurement_insert_bound_stmt)
 
-            return metric
+            return metric, tenant_id
 
-    def write_batch(self, metrics):
+    def write_batch(self, metrics, tenant_id=None):
 
         with self._lock:
             batch_list = self._metric_batch.get_all_batches()

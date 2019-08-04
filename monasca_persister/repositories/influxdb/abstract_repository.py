@@ -33,5 +33,17 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
             self.conf.influxdb.password,
             self.conf.influxdb.database_name)
 
-    def write_batch(self, data_points):
-        self._influxdb_client.write_points(data_points, 'ms', protocol='line')
+    def write_batch(self, data_points, tenant_id=None):
+        database = ('%s_%s' % (self.conf.influxdb.database_name, tenant_id)
+                    if self.conf.influxdb.db_per_tenant else None)
+        for i in range(3):
+            try:
+                self._influxdb_client.write_points(data_points, 'ms',
+                                                   protocol='line',
+                                                   database=database)
+                break
+            except influxdb.exceptions.InfluxDBClientError as err:
+                if err.code == 404:
+                    self._influxdb_client.create_database(database)
+                else:
+                    raise err

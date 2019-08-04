@@ -60,4 +60,4 @@ class MetricInfluxdbRepository(abstract_repository.AbstractInfluxdbRepository):
 
         LOG.debug(data)
 
-        return data
+        return data, tenant_id
