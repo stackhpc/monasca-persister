@@ -136,6 +136,8 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
             hash_string = '%s\0%s\0%s\0%s' % (region, tenant_id, metric_name, '\0'.join(dim_list))
             metric_id = hashlib.sha1(hash_string.encode('utf8')).hexdigest()
 
+            # TODO(brtknr): If database per tenant becomes the default and the
+            # only option, recording tenant_id will be redundant.
             metric = Metric(id=metric_id,
                             region=region,
                             tenant_id=tenant_id,
@@ -165,7 +167,7 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
                                                                           metric.dimension_names))
                 self._metric_batch.add_metric_query(metric_update_bound_stmt)
 
-                return metric
+                return metric, tenant_id
 
             self._metric_id_cache[metric.id] = metric.id
 
@@ -216,10 +218,12 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
                  metric.time_stamp))
             self._metric_batch.add_measurement_query(measurement_insert_bound_stmt)
 
-            return metric
+            return metric, tenant_id
 
-    def write_batch(self, metrics):
+    def write_batch(self, metrics, tenant_id=None):
 
+        # TODO(brtknr): At the moment, Cassandra does not have database per
+        # tenant implemented, so the provided tenant_id is not used.
         with self._lock:
             batch_list = self._metric_batch.get_all_batches()
 

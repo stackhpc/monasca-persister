@@ -30,8 +30,22 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
             self.conf.influxdb.ip_address,
             self.conf.influxdb.port,
             self.conf.influxdb.user,
-            self.conf.influxdb.password,
-            self.conf.influxdb.database_name)
+            self.conf.influxdb.password)
 
-    def write_batch(self, data_points):
-        self._influxdb_client.write_points(data_points, 'ms', protocol='line')
+    def write_batch(self, data_points, tenant_id=None):
+        database = ('%s_%s' % (self.conf.influxdb.database_name, tenant_id)
+                    if self.conf.influxdb.db_per_tenant
+                    else self.conf.influxdb.database_name)
+        for retry in range(2):
+            # NOTE (brtknr): Loop twice to ensure that exceptions that can be
+            # handled are handled before a retry to write data points.
+            try:
+                self._influxdb_client.write_points(data_points, 'ms',
+                                                   protocol='line',
+                                                   database=database)
+                break
+            except influxdb.exceptions.InfluxDBClientError as err:
+                if err.code == 404 and 'database not found' in err.content:
+                    self._influxdb_client.create_database(database)
+                else:
+                    raise err
