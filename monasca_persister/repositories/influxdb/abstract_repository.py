@@ -33,16 +33,18 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
             self.conf.influxdb.port,
             self.conf.influxdb.user,
             self.conf.influxdb.password)
-
-    def write_batch(self, data_points_by_tenant):
         if self.conf.influxdb.db_per_tenant:
-            for tenant_id, data_points in data_points_by_tenant.items():
-                database = '%s_%s' % (self.conf.influxdb.database_name, tenant_id)
-                self._write_batch(data_points, database)
+            self.data_points_class = abstract_repository.DataPointsAsDict
         else:
-            # NOTE (brtknr): Chain list of values to avoid multiple calls to
-            # database API endpoint (when db_per_tenant is False).
-            data_points = data_points_by_tenant.chained()
+            self.data_points_class = abstract_repository.DataPointsAsList
+
+    def write_batch(self, data_points):
+        if self.conf.influxdb.db_per_tenant:
+            for tenant_id, tenant_data_points in data_points.items():
+                database = '%s_%s' % (self.conf.influxdb.database_name,
+                                      tenant_id)
+                self._write_batch(tenant_data_points, database)
+        else:
             self._write_batch(data_points, self.conf.influxdb.database_name)
 
     def _write_batch(self, data_points, database):

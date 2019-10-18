@@ -109,4 +109,4 @@ def parse_events_message(message):
     payload = decoded_message['payload']
     tenant_id = payload['tenant_id']
 
-    return tenant_id, timestamp, event_type, payload
+    return (tenant_id, timestamp, event_type, payload), tenant_id
