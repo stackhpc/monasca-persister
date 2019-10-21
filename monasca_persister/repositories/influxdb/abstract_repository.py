@@ -65,5 +65,16 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
                     err = ''
                 if err.startswith(DATABASE_NOT_FOUND_MSG):
                     self._influxdb_client.create_database(database)
+                    # NOTE (brtknr): Only apply default retention policy at
+                    # database creation time so that existing policies are
+                    # not overridden since administrators may want different
+                    # retention policy per tenant.
+                    hours = self.conf.influxdb.default_retention_hours
+                    if hours > 0:
+                        rp = '{}h'.format(hours)
+                        default_rp = dict(database=database, default=True,
+                                          name=rp, duration=rp,
+                                          replication='1')
+                        self._influxdb_client.create_retention_policy(**default_rp)
                 else:
                     raise
