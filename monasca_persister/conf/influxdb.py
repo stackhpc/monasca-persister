@@ -23,6 +23,9 @@ influxdb_opts = [
     cfg.BoolOpt('db_per_tenant',
                 help='Whether to use a separate database per tenant',
                 default=False),
+    cfg.BoolOpt('default_retention_policy',
+                help='Default retention policy, e.g. 1w, 1m, 1y, etc.',
+                default=None),
     cfg.HostAddressOpt('ip_address',
                        help='Valid IP address or hostname '
                             'to InfluxDB instance'),

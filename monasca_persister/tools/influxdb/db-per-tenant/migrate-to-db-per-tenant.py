@@ -131,6 +131,9 @@ class MigrationHelper(object):
         measurements = self.get_measurements(measurements_file)
         tenancy = self.get_tenancies(measurements)
         done = self.get_complete(success_file)
+        rp = self.conf.influxdb.default_retention_policy
+        default_rp = (dict(name=rp, duration=rp, replication='1', default=True)
+                      if rp else {})
         skip = set()
         fail = set()
         if failure_file:
@@ -160,7 +163,7 @@ class MigrationHelper(object):
                         tenant_id, {}).get('end_time_offset_override',
                                            default_end_time_offset)
                     retention_policy = tenant_defaults.get(
-                        tenant_id, {}) .get('rp', {})
+                        tenant_id, {}) .get('rp', default_rp)
                     self._migrate(measurement, tenant_id,
                                   start_time_offset=start_time_offset,
                                   end_time_offset=end_time_offset,
