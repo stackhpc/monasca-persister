@@ -53,7 +53,7 @@ class AlarmStateHistCassandraRepository(abstract_repository.AbstractCassandraRep
                             alarm_id.encode('utf8'),
                             time_stamp)
 
-        return alarm_state_hist
+        return alarm_state_hist, tenant_id
 
     def write_batch(self, alarm_state_hists):
         while alarm_state_hists:

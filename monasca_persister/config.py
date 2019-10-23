@@ -23,7 +23,7 @@ LOG = log.getLogger(__name__)
 _CONF_LOADED = False
 
 
-def parse_args():
+def parse_args(description='Persists metrics & alarm history in TSDB'):
     global _CONF_LOADED
     if _CONF_LOADED:
         LOG.debug('Configuration has been already loaded')
@@ -35,7 +35,7 @@ def parse_args():
     CONF(prog='persister',
          project='monasca',
          version=version.version_str,
-         description='Persists metrics & alarm history in TSDB')
+         description=description)
 
     log.setup(CONF,
               product_name='persister',
