@@ -22,12 +22,42 @@ from monasca_common.kafka import consumer
 
 LOG = log.getLogger(__name__)
 
+class DataPoints(dict):
+
+    def __init__(self):
+        self.counter = 0
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError('Use append(key, value) instead.')
+
+    def __delitem__(self, key):
+        raise NotImplementedError('Use clear() instead.')
+
+    def pop(self):
+        raise NotImplementedError('Use clear() instead.')
+
+    def popitem(self):
+        raise NotImplementedError('Use clear() instead.')
+
+    def update(self):
+        raise NotImplementedError('Use clear() instead.')
+
+    def chained(self):
+        return [vi for vo in super(DataPoints, self).values() for vi in vo]
+
+    def append(self, key, value):
+        super(DataPoints, self).setdefault(key, []).append(value)
+        self.counter += 1
+
+    def clear(self):
+        super(DataPoints, self).clear()
+        self.counter = 0
 
 class Persister(object):
 
     def __init__(self, kafka_conf, zookeeper_conf, repository):
 
-        self._data_points = []
+        self._data_points = DataPoints()
 
         self._kafka_topic = kafka_conf.topic
 
@@ -53,20 +83,20 @@ class Persister(object):
             self.repository.write_batch(self._data_points)
 
             LOG.info("Processed {} messages from topic '{}'".format(
-                len(self._data_points), self._kafka_topic))
+                self._data_points.counter, self._kafka_topic))
 
-            self._data_points = []
+            self._data_points.clear()
             self._consumer.commit()
         except Exception as ex:
-            if "partial write: points beyond retention policy dropped" in ex.message:
+            if "partial write: points beyond retention policy dropped" in str(ex):
                 LOG.warning("Some points older than retention policy were dropped")
-                self._data_points = []
+                self._data_points.clear()
                 self._consumer.commit()
 
             elif cfg.CONF.repositories.ignore_parse_point_error \
-                    and "unable to parse" in ex.message:
+                    and "unable to parse" in str(ex):
                 LOG.warning("Some points were unable to be parsed and were dropped")
-                self._data_points = []
+                self._data_points.clear()
                 self._consumer.commit()
 
             else:
@@ -79,13 +109,13 @@ class Persister(object):
             for raw_message in self._consumer:
                 try:
                     message = raw_message[1]
-                    data_point = self.repository.process_message(message)
-                    self._data_points.append(data_point)
+                    data_point, tenant_id = self.repository.process_message(message)
+                    self._data_points.append(tenant_id, data_point)
                 except Exception:
                     LOG.exception('Error processing message. Message is '
                                   'being dropped. {}'.format(message))
 
-                if len(self._data_points) >= self._batch_size:
+                if self._data_points.counter >= self._batch_size:
                     self._flush()
         except Exception:
             LOG.exception(
