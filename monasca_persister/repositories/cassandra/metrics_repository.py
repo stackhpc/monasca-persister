@@ -219,7 +219,10 @@ class MetricCassandraRepository(abstract_repository.AbstractCassandraRepository)
 
             return metric, tenant_id
 
-    def write_batch(self, metrics):
+    def write_batch(self, metrics_by_tenant):
+        # TODO(brtknr): At the moment, Cassandra does not have database per
+        # tenant implemented, so join the list of values.
+        metrics = metrics_by_tenant.chained()
         with self._lock:
             batch_list = self._metric_batch.get_all_batches()
             results = execute_concurrent(self._session, batch_list, raise_on_first_error=True)

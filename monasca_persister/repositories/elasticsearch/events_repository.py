@@ -37,7 +37,6 @@ class ElasticSearchEventsRepository(abstract_repository.AbstractRepository):
             sniffer_timeout=self.conf.sniffer_timeout,
             max_retries=self.conf.max_retries
         )
-        self.data_points_class = abstract_repository.DataPointsAsList
 
     def process_message(self, message):
         return utils.parse_events_message(message)
