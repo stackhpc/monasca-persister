@@ -15,6 +15,7 @@
 import abc
 import influxdb
 from oslo_config import cfg
+from oslo_serialization import jsonutils
 import six
 
 from monasca_persister.repositories import abstract_repository
@@ -57,8 +58,12 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
                                                    database=database)
                 break
             except influxdb.exceptions.InfluxDBClientError as ex:
-                if (str(ex).startswith(DATABASE_NOT_FOUND_MSG) and
-                        self.conf.influxdb.db_per_tenant):
+                # Expected format: {"error":"database not found: \"test\""}
+                try:
+                    err = jsonutils.loads(ex.content).get('error')
+                except Exception:
+                    err = ''
+                if err.startswith(DATABASE_NOT_FOUND_MSG):
                     self._influxdb_client.create_database(database)
                 else:
                     raise
