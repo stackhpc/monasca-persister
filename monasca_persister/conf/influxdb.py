@@ -24,8 +24,8 @@ influxdb_opts = [
                 help='Whether to use a separate database per tenant',
                 default=False),
     cfg.IntOpt('default_retention_hours',
-                help='Default retention period in hours',
-                default=0),
+               help='Default retention period in hours',
+               default=0),
     cfg.HostAddressOpt('ip_address',
                        help='Valid IP address or hostname '
                             'to InfluxDB instance'),

@@ -18,6 +18,7 @@ from oslo_config import cfg
 import six
 
 from monasca_persister.repositories import abstract_repository
+from monasca_persister.repositories import data_points
 
 DATABASE_NOT_FOUND_MSG = "database not found"
 
@@ -34,9 +35,9 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
             self.conf.influxdb.user,
             self.conf.influxdb.password)
         if self.conf.influxdb.db_per_tenant:
-            self.data_points_class = abstract_repository.DataPointsAsDict
+            self.data_points_class = data_points.DataPointsAsDict
         else:
-            self.data_points_class = abstract_repository.DataPointsAsList
+            self.data_points_class = data_points.DataPointsAsList
 
     def write_batch(self, data_points):
         if self.conf.influxdb.db_per_tenant:
@@ -56,8 +57,9 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
                                                    database=database)
                 break
             except influxdb.exceptions.InfluxDBClientError as ex:
-                if (str(ex).startswith(DATABASE_NOT_FOUND_MSG) and
-                        self.conf.influxdb.db_per_tenant):
+                # When a databse is not found, the returned exception resolves
+                # to: {"error":"database not found: \"test\""}
+                if DATABASE_NOT_FOUND_MSG in str(ex):
                     self._influxdb_client.create_database(database)
                     # NOTE (brtknr): Only apply default retention policy at
                     # database creation time so that existing policies are
@@ -69,6 +71,6 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
                         default_rp = dict(database=database, default=True,
                                           name=rp, duration=rp,
                                           replication='1')
-                        self._influx_client.create_retention_policy(**default_rp)
+                        self._influxdb_client.create_retention_policy(**default_rp)
                 else:
                     raise
