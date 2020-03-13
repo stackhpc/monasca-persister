@@ -18,6 +18,7 @@ from oslo_config import cfg
 import six
 
 from monasca_persister.repositories import abstract_repository
+from monasca_persister.repositories import data_points
 
 DATABASE_NOT_FOUND_MSG = "database not found"
 
@@ -33,16 +34,18 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
             self.conf.influxdb.port,
             self.conf.influxdb.user,
             self.conf.influxdb.password)
-
-    def write_batch(self, data_points_by_tenant):
         if self.conf.influxdb.db_per_tenant:
-            for tenant_id, data_points in data_points_by_tenant.items():
-                database = '%s_%s' % (self.conf.influxdb.database_name, tenant_id)
-                self._write_batch(data_points, database)
+            self.data_points_class = data_points.DataPointsAsDict
         else:
-            # NOTE (brtknr): Chain list of values to avoid multiple calls to
-            # database API endpoint (when db_per_tenant is False).
-            data_points = data_points_by_tenant.chained()
+            self.data_points_class = data_points.DataPointsAsList
+
+    def write_batch(self, data_points):
+        if self.conf.influxdb.db_per_tenant:
+            for tenant_id, tenant_data_points in data_points.items():
+                database = '%s_%s' % (self.conf.influxdb.database_name,
+                                      tenant_id)
+                self._write_batch(tenant_data_points, database)
+        else:
             self._write_batch(data_points, self.conf.influxdb.database_name)
 
     def _write_batch(self, data_points, database):
@@ -54,8 +57,20 @@ class AbstractInfluxdbRepository(abstract_repository.AbstractRepository):
                                                    database=database)
                 break
             except influxdb.exceptions.InfluxDBClientError as ex:
-                if (str(ex).startswith(DATABASE_NOT_FOUND_MSG) and
-                        self.conf.influxdb.db_per_tenant):
+                # When a databse is not found, the returned exception resolves
+                # to: {"error":"database not found: \"test\""}
+                if DATABASE_NOT_FOUND_MSG in str(ex):
                     self._influxdb_client.create_database(database)
+                    # NOTE (brtknr): Only apply default retention policy at
+                    # database creation time so that existing policies are
+                    # not overridden since administrators may want different
+                    # retention policy per tenant.
+                    hours = self.conf.influxdb.default_retention_hours
+                    if hours > 0:
+                        rp = '{}h'.format(hours)
+                        default_rp = dict(database=database, default=True,
+                                          name=rp, duration=rp,
+                                          replication='1')
+                        self._influxdb_client.create_retention_policy(**default_rp)
                 else:
                     raise
